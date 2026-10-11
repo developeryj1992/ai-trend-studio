@@ -1,0 +1,18 @@
+# Local workspace and secrets
+data/*.json
+data/*.tmp
+data/*.corrupt.json
+.env
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
