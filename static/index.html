@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI 热点与直播提炼工作台</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/vendor/lucide.min.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">AI</div>
+        <div>
+          <h1>热点工作台</h1>
+          <p>公开数据 + 内容提炼</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-tab="trends"><i data-lucide="flame"></i><span>热榜</span></button>
+        <button class="nav-item" data-tab="videos"><i data-lucide="video"></i><span>视频提炼</span></button>
+        <button class="nav-item" data-tab="live"><i data-lucide="radio"></i><span>直播间</span></button>
+        <button class="nav-item" data-tab="settings"><i data-lucide="settings-2"></i><span>设置</span></button>
+      </nav>
+      <div class="sidebar-status">
+        <div id="sourceStatus" class="source-status"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h2 id="pageTitle">AI 热榜</h2>
+          <p id="pageMeta">等待刷新</p>
+        </div>
+        <div class="topbar-actions">
+          <button id="refreshButton" class="btn primary" type="button"><i data-lucide="refresh-cw"></i>刷新热榜</button>
+          <a class="btn" href="/api/export"><i data-lucide="download"></i>导出</a>
+        </div>
+      </header>
+
+      <section id="trends" class="tab-panel active">
+        <div class="filter-bar card">
+          <label>
+            <span>搜索</span>
+            <input id="trendSearch" type="search" placeholder="关键词、平台、作者">
+          </label>
+          <label>
+            <span>平台</span>
+            <select id="platformFilter">
+              <option value="all">全部</option>
+              <option value="douyin">抖音</option>
+              <option value="bilibili">B站</option>
+              <option value="weibo">微博</option>
+              <option value="zhihu">知乎</option>
+            </select>
+          </label>
+          <label class="switch">
+            <input id="includeUnrelated" type="checkbox">
+            <span>显示非 AI 内容</span>
+          </label>
+        </div>
+        <div id="trendList" class="trend-list"></div>
+      </section>
+
+      <section id="videos" class="tab-panel">
+        <div class="video-layout">
+          <form id="importForm" class="card form-card">
+            <h3>导入视频内容</h3>
+            <div class="form-grid">
+              <label>
+                <span>平台</span>
+                <select id="importPlatform">
+                  <option value="douyin">抖音</option>
+                  <option value="xiaohongshu">小红书</option>
+                  <option value="bilibili">B站</option>
+                  <option value="weibo">微博</option>
+                  <option value="zhihu">知乎</option>
+                  <option value="other">其他</option>
+                </select>
+              </label>
+              <label>
+                <span>类型</span>
+                <select id="importKind">
+                  <option value="video">视频</option>
+                  <option value="note">图文</option>
+                  <option value="thread">评论串</option>
+                </select>
+              </label>
+              <label class="span-2">
+                <span>标题</span>
+                <input id="importTitle" type="text" placeholder="视频或笔记标题">
+              </label>
+              <label class="span-2">
+                <span>链接</span>
+                <input id="importUrl" type="url" placeholder="https://">
+              </label>
+              <label>
+                <span>作者</span>
+                <input id="importAuthor" type="text" placeholder="昵称">
+              </label>
+              <label>
+                <span>字幕/正文文件</span>
+                <input id="subtitleFile" type="file" accept=".srt,.vtt,.txt,.json">
+              </label>
+              <label class="span-2">
+                <span>正文、字幕、评论或口播记录</span>
+                <textarea id="importText" rows="12" placeholder="粘贴文本，或选择 SRT/VTT/TXT 文件"></textarea>
+              </label>
+            </div>
+            <div class="form-actions">
+              <button class="btn primary" type="submit"><i data-lucide="sparkles"></i>提炼并保存</button>
+            </div>
+          </form>
+
+          <div class="side-column">
+            <div class="card search-card">
+              <h3>平台搜索</h3>
+              <div class="inline-form">
+                <input id="searchKeyword" type="search" value="AI">
+                <button id="openSearch" class="btn" type="button"><i data-lucide="external-link"></i>打开</button>
+              </div>
+              <div class="search-links">
+                <button data-search="douyin" type="button">抖音</button>
+                <button data-search="xiaohongshu" type="button">小红书</button>
+                <button data-search="bilibili" type="button">B站</button>
+              </div>
+            </div>
+            <div id="importList" class="import-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="live" class="tab-panel">
+        <div class="live-layout">
+          <div class="side-column">
+            <form id="liveForm" class="card form-card">
+              <h3>新建直播会话</h3>
+              <div class="form-grid">
+                <label>
+                  <span>平台</span>
+                  <select id="livePlatform">
+                    <option value="douyin">抖音</option>
+                    <option value="xiaohongshu">小红书</option>
+                    <option value="bilibili">B站</option>
+                    <option value="other">其他</option>
+                  </select>
+                </label>
+                <label>
+                  <span>形式</span>
+                  <select id="liveMode">
+                    <option value="single">单人授课</option>
+                    <option value="multi">多人连线</option>
+                  </select>
+                </label>
+                <label class="span-2">
+                  <span>直播标题</span>
+                  <input id="liveTitle" type="text" placeholder="例如：AI Agent 落地复盘">
+                </label>
+                <label class="span-2">
+                  <span>直播间链接</span>
+                  <input id="liveUrl" type="url" placeholder="https://">
+                </label>
+                <label class="span-2">
+                  <span>参与者</span>
+                  <textarea id="liveSpeakers" rows="3" placeholder="每行一个昵称"></textarea>
+                </label>
+              </div>
+              <button class="btn primary" type="submit"><i data-lucide="play"></i>开始记录</button>
+            </form>
+            <div id="sessionList" class="session-list"></div>
+          </div>
+
+          <div id="sessionDetail" class="session-detail empty">
+            <div class="empty-state">
+              <i data-lucide="radio"></i>
+              <p>选择或新建直播会话</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="settings" class="tab-panel">
+        <form id="settingsForm" class="card settings-form">
+          <h3>规则与模型</h3>
+          <label>
+            <span>AI 关键词，每行一个</span>
+            <textarea id="settingsKeywords" rows="10"></textarea>
+          </label>
+          <div class="settings-grid">
+            <label>
+              <span>API Base URL</span>
+              <input id="llmBaseUrl" type="url">
+            </label>
+            <label>
+              <span>模型</span>
+              <input id="llmModel" type="text">
+            </label>
+            <label>
+              <span>API Key</span>
+              <input id="llmApiKey" type="password" placeholder="留空则使用本地摘要">
+            </label>
+            <label>
+              <span>超时秒数</span>
+              <input id="llmTimeout" type="number" min="5" max="120">
+            </label>
+          </div>
+          <div class="form-actions">
+            <button class="btn primary" type="submit"><i data-lucide="save"></i>保存设置</button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
