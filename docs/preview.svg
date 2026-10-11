@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="AI Trend Studio overview">
+  <rect width="1200" height="630" fill="#f3f5f2"/>
+  <rect x="52" y="48" width="1096" height="534" rx="14" fill="#ffffff" stroke="#d9ded8"/>
+  <rect x="52" y="48" width="1096" height="94" rx="14" fill="#182422"/>
+  <rect x="52" y="118" width="1096" height="24" fill="#182422"/>
+  <circle cx="94" cy="95" r="18" fill="#dff2ef"/>
+  <text x="94" y="102" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="700" fill="#0b5d57">AI</text>
+  <text x="128" y="90" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700" fill="#ffffff">AI Trend Studio</text>
+  <text x="128" y="116" font-family="Segoe UI, Arial, sans-serif" font-size="15" fill="#a9bab3">Local-first trend radar and live-session distillation</text>
+  <rect x="892" y="72" width="94" height="34" rx="7" fill="#0f766e"/>
+  <text x="939" y="94" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#ffffff">Refresh</text>
+  <rect x="998" y="72" width="110" height="34" rx="7" fill="none" stroke="#65766f"/>
+  <text x="1053" y="94" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#ffffff">Export</text>
+
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect x="92" y="181" width="322" height="176" rx="10" fill="#ffffff" stroke="#d9ded8"/>
+    <rect x="116" y="207" width="58" height="34" rx="7" fill="#eef0ec"/>
+    <text x="145" y="230" text-anchor="middle" font-size="17" font-weight="700" fill="#1b2421">01</text>
+    <text x="190" y="230" font-size="19" font-weight="700" fill="#1b2421">Discover signals</text>
+    <g font-size="14" fill="#526460">
+      <text x="116" y="273">Douyin hot search</text>
+      <text x="116" y="299">Bilibili popular videos</text>
+      <text x="116" y="325">Weibo and Zhihu trends</text>
+    </g>
+    <rect x="116" y="339" width="88" height="6" rx="3" fill="#0f766e"/>
+
+    <rect x="440" y="181" width="322" height="176" rx="10" fill="#ffffff" stroke="#d9ded8"/>
+    <rect x="464" y="207" width="58" height="34" rx="7" fill="#eef0ec"/>
+    <text x="493" y="230" text-anchor="middle" font-size="17" font-weight="700" fill="#1b2421">02</text>
+    <text x="538" y="230" font-size="19" font-weight="700" fill="#1b2421">Distill content</text>
+    <g font-size="14" fill="#526460">
+      <text x="464" y="273">Text and comments</text>
+      <text x="464" y="299">SRT / VTT transcripts</text>
+      <text x="464" y="325">Local or model summaries</text>
+    </g>
+    <rect x="464" y="339" width="88" height="6" rx="3" fill="#b45309"/>
+
+    <rect x="788" y="181" width="322" height="176" rx="10" fill="#ffffff" stroke="#d9ded8"/>
+    <rect x="812" y="207" width="58" height="34" rx="7" fill="#eef0ec"/>
+    <text x="841" y="230" text-anchor="middle" font-size="17" font-weight="700" fill="#1b2421">03</text>
+    <text x="886" y="230" font-size="19" font-weight="700" fill="#1b2421">Close the loop</text>
+    <g font-size="14" fill="#526460">
+      <text x="812" y="273">Speaker-attributed live log</text>
+      <text x="812" y="299">Conclusions and actions</text>
+      <text x="812" y="325">Local JSON workspace</text>
+    </g>
+    <rect x="812" y="339" width="88" height="6" rx="3" fill="#0f766e"/>
+
+    <path d="M414 269h18m0 0-8-8m8 8-8 8" stroke="#8fa39b" stroke-width="3" fill="none"/>
+    <path d="M762 269h18m0 0-8-8m8 8-8 8" stroke="#8fa39b" stroke-width="3" fill="none"/>
+
+    <rect x="92" y="390" width="1018" height="161" rx="10" fill="#fbfcfa" stroke="#d9ded8"/>
+    <text x="124" y="431" font-size="19" font-weight="700" fill="#1b2421">Live brief</text>
+    <rect x="124" y="452" width="216" height="66" rx="8" fill="#dff2ef"/>
+    <text x="143" y="479" font-size="14" font-weight="700" fill="#0b5d57">Core conclusion</text>
+    <text x="143" y="501" font-size="13" fill="#31403b">Agents need a workflow</text>
+    <rect x="358" y="452" width="216" height="66" rx="8" fill="#fff1d8"/>
+    <text x="377" y="479" font-size="14" font-weight="700" fill="#704214">Key points</text>
+    <text x="377" y="501" font-size="13" fill="#65533d">Data, retrieval, pilot</text>
+    <rect x="592" y="452" width="216" height="66" rx="8" fill="#eef0ec"/>
+    <text x="611" y="479" font-size="14" font-weight="700" fill="#43534c">Actions</text>
+    <text x="611" y="501" font-size="13" fill="#5d6c66">Small-scope rollout</text>
+    <rect x="826" y="452" width="216" height="66" rx="8" fill="#fee4e2"/>
+    <text x="845" y="479" font-size="14" font-weight="700" fill="#b42318">Risks</text>
+    <text x="845" y="501" font-size="13" fill="#8a2b23">Privacy and compliance</text>
+  </g>
+</svg>
