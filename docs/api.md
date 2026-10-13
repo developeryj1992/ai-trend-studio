@@ -9,6 +9,7 @@ All responses are JSON unless otherwise noted. The default base URL is `http://1
 | `POST` | `/api/refresh` | Refresh public trend sources |
 | `POST` | `/api/imports` | Import and summarize content |
 | `POST` | `/api/settings` | Update keywords and model settings |
+| `POST` | `/api/live/douyin/search` | Search public Douyin livestream rooms |
 | `POST` | `/api/live/sessions` | Create a live session |
 | `POST` | `/api/live/sessions/{id}/events` | Append a speech/caption/comment event |
 | `POST` | `/api/live/sessions/{id}/finish` | Finish a session and generate a summary |
@@ -42,3 +43,14 @@ Content-Type: application/json
 ```
 
 SRT/VTT timestamps are removed automatically before summarization.
+
+## Douyin live search
+
+```http
+POST /api/live/douyin/search
+Content-Type: application/json
+
+{"keyword": "AI", "limit": 20}
+```
+
+The response returns normalized `items` with a room URL, `web_rid`, author, heat, mode hint, and matched AI keywords. The request uses public metadata only. If Douyin requires login or changes its interface, the response still succeeds with `notices` and a `fallback_url` for manual verification.

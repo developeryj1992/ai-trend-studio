@@ -9,6 +9,9 @@ const state = {
   platformFilter: "all",
   includeUnrelated: false,
   refreshing: false,
+  liveSearch: null,
+  liveSearching: false,
+  liveModeFilter: "all",
 };
 
 const platformLabels = {
@@ -108,6 +111,7 @@ function renderAll() {
   renderSourceStatus();
   renderTrends();
   renderImports();
+  renderLiveSearch();
   renderSessions();
   renderSettings();
   renderPageMeta();
@@ -202,6 +206,39 @@ function renderImports() {
     <div class="meta-row"><span>${platformLabels[row.platform] || row.platform} · ${escapeHtml(row.author || "未知作者")}</span><span>${formatTime(row.created_at)}</span></div>
     ${row.summary ? `<strong>${escapeHtml(row.summary.headline || "")}</strong>${summaryList(row.summary, "key_points")}` : ""}
   </article>`).join("");
+}
+
+function renderLiveSearch() {
+  if (!state.liveSearch) {
+    el("liveSearchNotice").innerHTML = "";
+    el("liveSearchResults").innerHTML = "";
+    return;
+  }
+  const search = state.liveSearch;
+  const notices = search.notices || [];
+  el("liveSearchNotice").innerHTML = notices.length
+    ? `${notices.map(notice => `<p>${escapeHtml(notice)}</p>`).join("")}${search.fallback_url ? `<a href="${escapeHtml(search.fallback_url)}" target="_blank" rel="noopener noreferrer">打开抖音搜索页</a>` : ""}`
+    : "";
+  const rows = (search.items || []).filter(row =>
+    state.liveModeFilter === "all" || (row.extra?.mode || "single") === state.liveModeFilter
+  );
+  const list = el("liveSearchResults");
+  if (!rows.length) {
+    list.innerHTML = `<div class="card empty-message">暂无公开结果</div>`;
+    return;
+  }
+  list.innerHTML = rows.map((row, index) => `<article class="card live-search-card">
+    <div class="live-search-main">
+      <h4>${row.url ? `<a href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.title)}</a>` : escapeHtml(row.title)}</h4>
+      <div class="meta-row">
+        <span>${escapeHtml(row.author || "未知主播")} · ${row.extra?.mode === "multi" ? "多人连线" : "单人"}</span>
+        <span>${formatNumber(row.heat)} 观看</span>
+      </div>
+      ${(row.matched_keywords || []).length ? `<div class="tags">${row.matched_keywords.slice(0, 3).map(word => `<span class="tag ai">${escapeHtml(word)}</span>`).join("")}</div>` : ""}
+    </div>
+    <button class="btn small start-live-session" data-index="${index}" type="button"><i data-lucide="play"></i>记录</button>
+  </article>`).join("");
+  renderIcons();
 }
 
 function renderSessions() {
@@ -393,6 +430,63 @@ async function createSession(event) {
   renderAll();
 }
 
+async function searchDouyinLive(event) {
+  event.preventDefault();
+  if (state.liveSearching) return;
+  const keyword = el("liveSearchKeyword").value.trim();
+  if (!keyword) {
+    toast("请输入搜索关键词", true);
+    return;
+  }
+  state.liveSearching = true;
+  const button = el("liveSearchButton");
+  button.disabled = true;
+  button.innerHTML = `<i data-lucide="loader-2"></i>搜索中`;
+  renderIcons();
+  try {
+    const payload = await api("/api/live/douyin/search", {
+      method: "POST",
+      body: { keyword, limit: 30 },
+    });
+    state.liveSearch = payload.result;
+    renderLiveSearch();
+    toast(payload.result.items.length ? `找到 ${payload.result.items.length} 个直播间` : "抖音公开结果为空");
+  } catch (error) {
+    toast(`搜索失败：${error.message}`, true);
+  } finally {
+    state.liveSearching = false;
+    button.disabled = false;
+    button.innerHTML = `<i data-lucide="search"></i>搜索`;
+    renderIcons();
+  }
+}
+
+async function createSessionFromLiveSearch(index, button) {
+  const row = state.liveSearch?.items?.[index];
+  if (!row) return;
+  if (button) button.disabled = true;
+  try {
+    const payload = await api("/api/live/sessions", {
+      method: "POST",
+      body: {
+        title: row.title,
+        platform: "douyin",
+        url: row.url,
+        mode: row.extra?.mode || "single",
+        speakers: row.author ? [row.author] : [],
+      },
+    });
+    state.data.sessions.unshift(payload.session);
+    state.selectedSessionId = payload.session.id;
+    toast("直播记录已开始");
+    renderAll();
+  } catch (error) {
+    toast(`创建失败：${error.message}`, true);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 async function addEvent(event) {
   event.preventDefault();
   const content = el("eventContent").value.trim();
@@ -507,6 +601,16 @@ function bindEvents() {
     if (!file) return;
     el("importText").value = await file.text();
     toast("文件内容已载入");
+  });
+  el("douyinLiveSearchForm").addEventListener("submit", searchDouyinLive);
+  el("liveModeFilter").addEventListener("change", event => {
+    state.liveModeFilter = event.target.value;
+    renderLiveSearch();
+  });
+  el("liveSearchResults").addEventListener("click", event => {
+    const button = event.target.closest(".start-live-session");
+    if (!button) return;
+    createSessionFromLiveSearch(Number(button.dataset.index), button);
   });
   el("liveForm").addEventListener("submit", createSession);
   el("settingsForm").addEventListener("submit", saveSettings);

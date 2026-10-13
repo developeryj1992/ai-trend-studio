@@ -15,7 +15,7 @@ AI Trend Studio collects public hot-topic signals, distills video and note conte
 
 AI news is scattered across Douyin, Xiaohongshu, Bilibili, Weibo, Zhihu, and live streams. Most dashboards only show traffic numbers; most note-taking tools do not understand an AI discussion. AI Trend Studio combines both jobs:
 
-1. Discover public AI-related topics and videos.
+1. Discover public AI-related topics, videos, and livestream rooms.
 2. Turn descriptions, transcripts, comments, or notes into key points.
 3. Record live sessions by speaker while the stream is happening.
 4. Generate a reusable brief with conclusions, actions, and risks.
@@ -24,10 +24,11 @@ Everything remains local by default. The only network calls are the public trend
 
 ## Highlights
 
-- **Public trend collectors:** Douyin hot search, Bilibili popular videos, Weibo hot search, and Zhihu hot list.
+- **Public trend collectors:** Douyin hot search and livestream discovery, Bilibili popular videos, Weibo hot search, and Zhihu hot list.
 - **AI keyword filtering:** Customize the keyword list from the settings page; the dashboard keeps only relevant items by default.
 - **Content distillation:** Import text, descriptions, comments, SRT, or VTT for any platform. Public Bilibili metadata and available public subtitles are fetched automatically.
 - **Live session log:** Single-speaker or multi-guest sessions, speaker attribution, speech/caption/comment/insight event types, and transcript import.
+- **Douyin live discovery:** Search a keyword, inspect public room metadata, and create a live session in one click.
 - **Structured summaries:** Core conclusion, key points, action items, risks, keywords, and stats.
 - **Offline-first:** A built-in Chinese extractive summarizer runs without an API key.
 - **Offline dashboard assets:** The UI and icon library are bundled locally after checkout.
@@ -65,23 +66,24 @@ On Windows, double-click `start.bat`. On macOS or Linux:
 ## Workflow
 
 1. Open **Trends** and refresh public sources.
-2. Send a video to **Video Distillation** or paste a Xiaohongshu/Douyin description, transcript, or comment thread.
-3. Create a **Live Session** before an AI livestream starts.
-4. Add speaker events during the stream, or upload a transcript/subtitle file.
-5. Click **Finish & Summarize** to generate a brief with conclusions, actions, and risks.
-6. Export the complete workspace as JSON for backup or another pipeline.
+2. Search Douyin livestreams from **Live** when you need AI rooms.
+3. Send a video to **Video Distillation** or paste a Xiaohongshu/Douyin description, transcript, or comment thread.
+4. Create a **Live Session** before an AI livestream starts.
+5. Add speaker events during the stream, or upload a transcript/subtitle file.
+6. Click **Finish & Summarize** to generate a brief with conclusions, actions, and risks.
+7. Export the complete workspace as JSON for backup or another pipeline.
 
 ## Platform support
 
 | Platform | Automatic collection | Manual distillation | Live session log |
 | --- | --- | --- | --- |
-| Douyin | Public hot-search API | Yes | Yes |
+| Douyin | Public hot-search API + public live-room search | Yes | Yes |
 | Bilibili | Popular videos + public metadata | Yes | Yes |
 | Weibo | Public hot-search API | Yes | Yes |
 | Zhihu | Public hot-question API | Yes | Yes |
 | Xiaohongshu | Bring-your-own export/API | Yes | Yes |
 
-Platform interfaces change often and may require cookies, signatures, or official authorization. AI Trend Studio intentionally avoids bypassing those controls. Xiaohongshu and protected Douyin content can still be analyzed through user-authorized text, subtitles, comments, or official exports.
+Platform interfaces change often and may require cookies, signatures, or official authorization. AI Trend Studio intentionally avoids bypassing those controls. Douyin live discovery uses public metadata and returns a manual search-page link when the platform requires login. Xiaohongshu and protected Douyin content can still be analyzed through user-authorized text, subtitles, comments, or official exports.
 
 ## Optional model configuration
 

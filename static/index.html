@@ -137,6 +137,20 @@
       <section id="live" class="tab-panel">
         <div class="live-layout">
           <div class="side-column">
+            <form id="douyinLiveSearchForm" class="card form-card">
+              <h3>抖音直播间搜索</h3>
+              <div class="live-search-controls">
+                <input id="liveSearchKeyword" type="search" value="AI" placeholder="AI、Agent、大模型" aria-label="搜索关键词">
+                <select id="liveModeFilter" aria-label="直播形式">
+                  <option value="all">全部形式</option>
+                  <option value="multi">多人连线</option>
+                  <option value="single">单人</option>
+                </select>
+                <button id="liveSearchButton" class="btn primary" type="submit"><i data-lucide="search"></i>搜索</button>
+              </div>
+              <div id="liveSearchNotice" class="search-notice"></div>
+            </form>
+            <div id="liveSearchResults" class="live-search-list"></div>
             <form id="liveForm" class="card form-card">
               <h3>新建直播会话</h3>
               <div class="form-grid">

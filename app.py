@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import json
+import gzip
+import html
 import os
 import re
 import threading
@@ -14,6 +16,7 @@ import urllib.request
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+from html.parser import HTMLParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -141,6 +144,28 @@ def fetch_json(url: str, headers: dict[str, str] | None = None, timeout: int = 1
         raise FetchError(str(exc)) from exc
 
 
+def fetch_text(url: str, headers: dict[str, str] | None = None, timeout: int = 15) -> str:
+    base_headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/125.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+    }
+    if headers:
+        base_headers.update(headers)
+    request = urllib.request.Request(url, headers=base_headers)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read()
+            if response.headers.get("Content-Encoding", "").lower() == "gzip":
+                raw = gzip.decompress(raw)
+    except (urllib.error.URLError, TimeoutError, OSError, gzip.BadGzipFile) as exc:
+        raise FetchError(str(exc)) from exc
+    return raw.decode("utf-8", errors="replace")
+
+
 def item(
     platform: str,
     kind: str,
@@ -165,6 +190,248 @@ def item(
         "matched_keywords": [],
         "fetched_at": utc_now(),
         "extra": extra or {},
+    }
+
+
+class JSONScriptCollector(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.fragments: list[str] = []
+        self._in_json_script = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        script_type = (attributes.get("type") or "").lower()
+        self._in_json_script = tag.lower() == "script" and script_type in (
+            "application/json",
+            "application/json; charset=utf-8",
+        )
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() == "script":
+            self._in_json_script = False
+
+    def handle_data(self, data: str) -> None:
+        if self._in_json_script and data.strip():
+            self.fragments.append(data)
+
+
+def decode_embedded_json(fragment: str) -> Any:
+    candidates = [html.unescape(fragment.strip())]
+    if "%" in candidates[0]:
+        candidates.append(urllib.parse.unquote(candidates[0]))
+    for candidate in candidates:
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
+def nested_text(value: Any, *keys: str) -> str:
+    for key in keys:
+        nested = value.get(key) if isinstance(value, dict) else None
+        if isinstance(nested, str) and compact_space(nested):
+            return compact_space(nested)
+        if isinstance(nested, (int, float)) and nested:
+            return str(nested)
+    return ""
+
+
+def douyin_live_author(row: dict[str, Any]) -> str:
+    for key in ("owner", "anchor", "author", "user", "anchor_info"):
+        nested = row.get(key)
+        if isinstance(nested, dict):
+            name = nested_text(
+                nested,
+                "nickname", "realName", "nick_name", "name", "display_name",
+            )
+            if name:
+                return name
+        elif isinstance(nested, str) and compact_space(nested):
+            return compact_space(nested)
+    return ""
+
+
+def douyin_live_heat(row: dict[str, Any]) -> int:
+    stats = row.get("stats") if isinstance(row.get("stats"), dict) else {}
+    for source in (
+        stats.get("user_count_str"), stats.get("total_user_str"), stats.get("user_count"),
+        row.get("user_count_str"), row.get("heat"), row.get("hot_value"),
+        row.get("popularity"), row.get("view_count"),
+    ):
+        if source not in (None, ""):
+            return parse_cn_number(source)
+    return 0
+
+
+def douyin_live_cover(row: dict[str, Any]) -> str:
+    for key in ("cover", "cover_url", "cover_url_list", "pic", "thumbnail"):
+        value = row.get(key)
+        if isinstance(value, dict):
+            urls = value.get("url_list")
+            if isinstance(urls, list) and urls:
+                return str(urls[0])
+        if isinstance(value, list) and value:
+            return str(value[0])
+        if isinstance(value, str) and value.startswith("http"):
+            return value
+    return ""
+
+
+def douyin_live_mode(row: dict[str, Any]) -> str:
+    for key in ("linkmic_status", "link_mic_status", "linkmic", "link_mic"):
+        value = row.get(key)
+        if isinstance(value, (str, int, float)) and str(value) not in ("", "0"):
+            return "multi"
+    for key in ("grid_count", "linkmic_count", "guest_count"):
+        try:
+            if int(row.get(key) or 0) > 1:
+                return "multi"
+        except (TypeError, ValueError):
+            continue
+    return "single"
+
+
+def normalize_douyin_live_room(row: dict[str, Any], rank: int) -> dict[str, Any] | None:
+    web_rid = str(row.get("web_rid") or row.get("webRid") or row.get("roomId") or "")
+    if not re.fullmatch(r"[1-9]\d{5,}", web_rid):
+        return None
+    author = douyin_live_author(row)
+    raw_title = nested_text(row, "title", "desc", "room_title")
+    if not raw_title and not author:
+        return None
+    title = raw_title or f"{author}直播间"
+    stats = row.get("stats") if isinstance(row.get("stats"), dict) else {}
+    status = row.get("status")
+    return item(
+        "douyin",
+        "live_room",
+        title,
+        f"https://live.douyin.com/{web_rid}",
+        rank,
+        douyin_live_heat(row),
+        nested_text(row, "description", "intro", "signature"),
+        author,
+        {
+            "web_rid": web_rid,
+            "room_id": str(row.get("id_str") or row.get("room_id_str") or row.get("roomId") or ""),
+            "mode": douyin_live_mode(row),
+            "status": "live" if status in (2, "2", "live") else "unknown",
+            "viewers": nested_text(stats, "user_count_str", "user_count"),
+            "cover_url": douyin_live_cover(row),
+        },
+    )
+
+
+def parse_douyin_live_payload(payload: Any, limit: int = 20) -> list[dict[str, Any]]:
+    rooms: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def visit(node: Any) -> None:
+        if len(rooms) >= limit:
+            return
+        if isinstance(node, dict):
+            normalized = normalize_douyin_live_room(node, len(rooms) + 1)
+            if normalized:
+                web_rid = normalized["extra"]["web_rid"]
+                if web_rid not in seen:
+                    seen.add(web_rid)
+                    rooms.append(normalized)
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(payload)
+    return rooms
+
+
+def parse_douyin_live_search_html(html_text: str, limit: int = 20) -> list[dict[str, Any]]:
+    collector = JSONScriptCollector()
+    try:
+        collector.feed(html_text)
+        collector.close()
+    except Exception:
+        return []
+    rooms: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for fragment in collector.fragments:
+        payload = decode_embedded_json(fragment)
+        if payload is None:
+            continue
+        for room in parse_douyin_live_payload(payload, limit):
+            web_rid = room["extra"]["web_rid"]
+            if web_rid in seen:
+                continue
+            room["rank"] = len(rooms) + 1
+            seen.add(web_rid)
+            rooms.append(room)
+            if len(rooms) >= limit:
+                break
+    return rooms
+
+
+def douyin_live_search(keyword: str, limit: int = 20) -> dict[str, Any]:
+    query = compact_space(keyword)
+    if not query:
+        raise ValueError("empty_keyword")
+    safe_limit = max(1, min(50, int(limit)))
+    fallback_url = "https://live.douyin.com/search?" + urllib.parse.urlencode({"keyword": query})
+    params = {
+        "aid": "6383",
+        "device_platform": "web",
+        "browser_language": "zh-CN",
+        "browser_platform": "Win32",
+        "browser_name": "Chrome",
+        "browser_version": "125.0.0.0",
+        "search_channel": "aweme_live",
+        "search_source": "switch_tab",
+        "query_correct_type": "1",
+        "count": str(safe_limit),
+        "need_filter_settings": "1",
+        "list_type": "single",
+        "keyword": query,
+    }
+    url = "https://live.douyin.com/aweme/v1/web/live/search/?" + urllib.parse.urlencode(params)
+    items: list[dict[str, Any]] = []
+    notices: list[str] = []
+
+    try:
+        payload = fetch_json(url, {
+            "Accept": "application/json, text/plain, */*",
+            "Referer": fallback_url,
+            "Origin": "https://live.douyin.com",
+        })
+        status_code = payload.get("status_code") if isinstance(payload, dict) else None
+        items = parse_douyin_live_payload(payload, safe_limit)
+        if status_code not in (None, 0):
+            notices.append(f"抖音搜索接口返回 {status_code}，公开结果不可用")
+    except FetchError as exc:
+        notices.append(f"抖音搜索接口不可用：{str(exc)[:160]}")
+
+    if not items:
+        try:
+            page = fetch_text(fallback_url, {"Referer": "https://live.douyin.com/"})
+            items = parse_douyin_live_search_html(page, safe_limit)
+        except FetchError as exc:
+            notices.append(f"抖音搜索页不可用：{str(exc)[:160]}")
+
+    if not items:
+        notices.append("未取得公开直播间数据，可打开抖音搜索页手动确认")
+
+    keywords = STORE.data["settings"].get("keywords", DEFAULT_KEYWORDS)
+    for row in items:
+        relevant, matched = is_ai_relevant(row, keywords)
+        row["matched_keywords"] = matched
+        row["ai_relevant"] = relevant
+    return {
+        "query": query,
+        "items": items[:safe_limit],
+        "fallback_url": fallback_url,
+        "notices": list(dict.fromkeys(notices)),
+        "fetched_at": utc_now(),
     }
 
 
@@ -559,7 +826,7 @@ def public_state() -> dict[str, Any]:
     ]
     data["manual_platforms"] = [
         {"id": "xiaohongshu", "label": "小红书", "reason": "无稳定公开列表接口；用搜索链接和内容导入"},
-        {"id": "douyin", "label": "抖音", "reason": "热榜自动抓取；视频正文/字幕和直播间需登录或签名，改为导入"},
+        {"id": "douyin", "label": "抖音", "reason": "热榜和公开直播间自动发现；受保护内容需授权文本或官方导出"},
     ]
     return data
 
@@ -697,6 +964,14 @@ class Handler(BaseHTTPRequestHandler):
                 row["summary"] = summarize(row["title"] or "未命名内容", row["raw_text"], row["url"])
                 STORE.update(lambda data: data["imports"].insert(0, row))
                 self.send_json({"ok": True, "import": row}, 201)
+            elif path == "/api/live/douyin/search":
+                keyword = compact_space(str(payload.get("keyword") or ""))
+                try:
+                    limit = int(payload.get("limit") or 20)
+                except (TypeError, ValueError):
+                    limit = 20
+                result = douyin_live_search(keyword, limit)
+                self.send_json({"ok": True, "result": result})
             elif path == "/api/live/sessions":
                 speakers = [
                     compact_space(str(speaker)) for speaker in payload.get("speakers", [])

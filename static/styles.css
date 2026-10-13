@@ -247,10 +247,29 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 }
 .search-links button.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-strong); }
 
-.import-list, .session-list { display: grid; gap: 10px; }
+.search-notice { display: grid; gap: 6px; }
+.search-notice p { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.search-notice a { color: var(--accent-strong); font-size: 12px; font-weight: 650; }
+.live-search-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 118px auto;
+  gap: 8px;
+}
+.import-list, .session-list, .live-search-list { display: grid; gap: 10px; }
 .import-card, .session-card { padding: 13px; }
 .import-card h4, .session-card h4 { margin: 0 0 7px; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
 .meta-row { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 12px; }
+.live-search-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 11px;
+  align-items: center;
+  padding: 12px;
+}
+.live-search-main { display: grid; gap: 7px; min-width: 0; }
+.live-search-main h4 { margin: 0; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.live-search-main a { text-decoration: none; }
+.live-search-main a:hover { color: var(--accent); text-decoration: underline; }
 .summary-lines { display: grid; gap: 7px; margin: 11px 0 0; padding: 0; list-style: none; }
 .summary-lines li { position: relative; padding-left: 13px; font-size: 13px; line-height: 1.55; }
 .summary-lines li::before { position: absolute; top: 8px; left: 0; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); content: ""; }
@@ -360,7 +379,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   .filter-bar input, .filter-bar select { width: 100%; }
   .trend-card { grid-template-columns: 38px minmax(0, 1fr); }
   .trend-side { grid-column: 2; justify-items: start; text-align: left; }
-  .form-grid, .event-form { grid-template-columns: 1fr; }
+  .form-grid, .event-form, .live-search-controls { grid-template-columns: 1fr; }
   .span-2 { grid-column: auto; }
   .event-stream { max-height: 260px; }
   .event-row { grid-template-columns: 62px minmax(0, 1fr); }

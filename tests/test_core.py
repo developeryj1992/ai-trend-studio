@@ -1,4 +1,6 @@
 import unittest
+import json
+import urllib.parse
 
 import app
 
@@ -43,6 +45,49 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(app.parse_cn_number("851 万热度"), 8510000)
         self.assertEqual(app.parse_cn_number("1234 热度"), 1234)
         self.assertEqual(app.parse_cn_number("invalid"), 0)
+
+    def test_douyin_live_payload_is_normalized(self):
+        payload = {
+            "status_code": 0,
+            "data": [
+                {
+                    "room": {
+                        "web_rid": "541395769307",
+                        "id_str": "7695391322215041819",
+                        "title": "AI Agent 落地连线",
+                        "status": 2,
+                        "owner": {"nickname": "AI 主播"},
+                        "stats": {"user_count_str": "1.2万"},
+                        "linkmic_status": 1,
+                    }
+                }
+            ],
+        }
+        rows = app.parse_douyin_live_payload(payload)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["platform"], "douyin")
+        self.assertEqual(rows[0]["kind"], "live_room")
+        self.assertEqual(rows[0]["url"], "https://live.douyin.com/541395769307")
+        self.assertEqual(rows[0]["heat"], 12000)
+        self.assertEqual(rows[0]["extra"]["mode"], "multi")
+
+    def test_douyin_live_search_html_parses_encoded_json_and_ignores_invalid(self):
+        payload = {
+            "rooms": [
+                {"web_rid": "386832142290", "title": "大模型应用直播", "author": {"nickname": "研究员"}},
+                {"web_rid": "386832142290", "title": "重复房间"},
+            ]
+        }
+        encoded = urllib.parse.quote(json.dumps(payload, ensure_ascii=False))
+        html_text = (
+            '<script type="application/json" id="test">not-json</script>'
+            f'<script type="application/json" id="LIVE_SSR_DATA_ID">{encoded}</script>'
+        )
+        rows = app.parse_douyin_live_search_html(html_text)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["title"], "大模型应用直播")
+        self.assertEqual(rows[0]["author"], "研究员")
+        self.assertEqual(app.parse_douyin_live_search_html("<script>{broken</script>"), [])
 
     def test_public_state_masks_api_key(self):
         state = app.public_state()
