@@ -1,6 +1,6 @@
 [project]
 name = "ai-trend-studio"
-version = "1.0.0"
+version = "1.1.0"
 description = "Local-first AI trend radar and live-session distillation"
 readme = "README.md"
 requires-python = ">=3.10"

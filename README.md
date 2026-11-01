@@ -25,6 +25,7 @@ Everything remains local by default. The only network calls are the public trend
 ## Highlights
 
 - **Public trend collectors:** Douyin hot search and livestream discovery, Bilibili popular videos, Weibo hot search, and Zhihu hot list.
+- **Keyword video discovery:** Search public Bilibili videos by play count, recency, or engagement, then distill one in a click.
 - **AI keyword filtering:** Customize the keyword list from the settings page; the dashboard keeps only relevant items by default.
 - **Content distillation:** Import text, descriptions, comments, SRT, or VTT for any platform. Public Bilibili metadata and available public subtitles are fetched automatically.
 - **Live session log:** Single-speaker or multi-guest sessions, speaker attribution, speech/caption/comment/insight event types, and transcript import.
@@ -67,7 +68,7 @@ On Windows, double-click `start.bat`. On macOS or Linux:
 
 1. Open **Trends** and refresh public sources.
 2. Search Douyin livestreams from **Live** when you need AI rooms.
-3. Send a video to **Video Distillation** or paste a Xiaohongshu/Douyin description, transcript, or comment thread.
+3. Search a keyword in **Video Distillation**, distill a Bilibili result, or paste a Xiaohongshu/Douyin description, transcript, or comment thread.
 4. Create a **Live Session** before an AI livestream starts.
 5. Add speaker events during the stream, or upload a transcript/subtitle file.
 6. Click **Finish & Summarize** to generate a brief with conclusions, actions, and risks.
@@ -78,7 +79,7 @@ On Windows, double-click `start.bat`. On macOS or Linux:
 | Platform | Automatic collection | Manual distillation | Live session log |
 | --- | --- | --- | --- |
 | Douyin | Public hot-search API + public live-room search | Yes | Yes |
-| Bilibili | Popular videos + public metadata | Yes | Yes |
+| Bilibili | Popular videos + keyword search + public metadata | Yes | Yes |
 | Weibo | Public hot-search API | Yes | Yes |
 | Zhihu | Public hot-question API | Yes | Yes |
 | Xiaohongshu | Bring-your-own export/API | Yes | Yes |

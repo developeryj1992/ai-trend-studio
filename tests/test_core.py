@@ -89,6 +89,43 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(rows[0]["author"], "研究员")
         self.assertEqual(app.parse_douyin_live_search_html("<script>{broken</script>"), [])
 
+    def test_bilibili_search_result_strips_highlight_html(self):
+        row = app.normalize_bilibili_search_result({
+            "bvid": "BV1xTest01",
+            "title": '<em class="keyword">AI</em> Agent &amp; 大模型',
+            "description": "讲解 <em class=\"keyword\">智能体</em> 工作流",
+            "author": "AI 研究员",
+            "arcurl": "https://www.bilibili.com/video/BV1xTest01",
+            "play": 12345,
+            "like": 234,
+            "favorites": 45,
+            "duration": 125,
+            "pubdate": 1760000000,
+            "tag": "AI,Agent,大模型",
+        }, 1)
+        self.assertEqual(row["title"], "AI Agent & 大模型")
+        self.assertEqual(row["description"], "讲解 智能体 工作流")
+        self.assertEqual(row["heat"], 12345)
+        self.assertEqual(row["extra"]["duration"], 125)
+        self.assertEqual(row["extra"]["tags"], ["AI", "Agent", "大模型"])
+
+    def test_bilibili_search_payload_deduplicates_and_limits_results(self):
+        source = {
+            "bvid": "BV1xTest01",
+            "title": "AI 视频教程",
+            "author": "讲师",
+            "play": 100,
+        }
+        payload = {
+            "code": 0,
+            "data": {"result": [source, source, {"bvid": "BV1xTest02", "title": "重复无效"}]},
+        }
+        rows = app.parse_bilibili_search_payload(payload, 2)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["rank"], 1)
+        self.assertEqual(rows[1]["extra"]["bvid"], "BV1xTest02")
+        self.assertEqual(app.parse_bilibili_search_payload({"data": {"result": {}}}), [])
+
     def test_public_state_masks_api_key(self):
         state = app.public_state()
         self.assertIn(state["settings"]["llm"].get("api_key"), (None, "", "********"))

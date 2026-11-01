@@ -117,18 +117,26 @@
           </form>
 
           <div class="side-column">
-            <div class="card search-card">
-              <h3>平台搜索</h3>
-              <div class="inline-form">
-                <input id="searchKeyword" type="search" value="AI">
-                <button id="openSearch" class="btn" type="button"><i data-lucide="external-link"></i>打开</button>
+            <form id="videoSearchForm" class="card search-card">
+              <h3>关键词视频检索</h3>
+              <div class="video-search-controls">
+                <input id="videoSearchKeyword" type="search" value="AI" placeholder="AI Agent、大模型、提示词" aria-label="视频关键词">
+                <select id="videoOrder" aria-label="排序方式">
+                  <option value="click">播放最多</option>
+                  <option value="totalrank">综合排序</option>
+                  <option value="pubdate">最新发布</option>
+                  <option value="dm">弹幕最多</option>
+                </select>
+                <label class="switch compact">
+                  <input id="videoAiOnly" type="checkbox" checked>
+                  <span>仅 AI</span>
+                </label>
+                <button id="videoSearchButton" class="btn primary" type="submit"><i data-lucide="search"></i>搜索</button>
               </div>
-              <div class="search-links">
-                <button data-search="douyin" type="button">抖音</button>
-                <button data-search="xiaohongshu" type="button">小红书</button>
-                <button data-search="bilibili" type="button">B站</button>
-              </div>
-            </div>
+              <div id="videoSearchNotice" class="search-notice"></div>
+              <div id="videoExternalLinks" class="search-links"></div>
+            </form>
+            <div id="videoSearchResults" class="video-search-list"></div>
             <div id="importList" class="import-list"></div>
           </div>
         </div>

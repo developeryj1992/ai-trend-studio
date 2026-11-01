@@ -7,6 +7,7 @@ All responses are JSON unless otherwise noted. The default base URL is `http://1
 | `GET` | `/api/health` | Liveness check |
 | `GET` | `/api/state` | Read workspace state with masked credentials |
 | `POST` | `/api/refresh` | Refresh public trend sources |
+| `POST` | `/api/videos/search` | Search popular public Bilibili videos by keyword |
 | `POST` | `/api/imports` | Import and summarize content |
 | `POST` | `/api/settings` | Update keywords and model settings |
 | `POST` | `/api/live/douyin/search` | Search public Douyin livestream rooms |
@@ -43,6 +44,19 @@ Content-Type: application/json
 ```
 
 SRT/VTT timestamps are removed automatically before summarization.
+
+## Video keyword search
+
+```http
+POST /api/videos/search
+Content-Type: application/json
+
+{"keyword": "AI Agent", "limit": 20, "order": "click", "ai_only": true}
+```
+
+`order` accepts `click` (most played), `totalrank`, `pubdate`, and `dm`. The response returns normalized video items with title, author, description, URL, play count, duration, tags, and matched AI keywords. Send an item to `/api/imports` to fetch available public Bilibili metadata/subtitles and create a summary.
+
+Douyin and Xiaohongshu search links are returned for manual, authorized use. The project does not bypass their login, signature, or anti-bot controls.
 
 ## Douyin live search
 

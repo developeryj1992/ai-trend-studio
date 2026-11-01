@@ -67,6 +67,10 @@ def compact_space(value: str) -> str:
     return re.sub(r"\s+", " ", value or "").strip()
 
 
+def plain_html(value: Any) -> str:
+    return compact_space(re.sub(r"<[^>]+>", " ", html.unescape(str(value or ""))))
+
+
 class Store:
     def __init__(self, path: Path):
         self.path = path
@@ -472,6 +476,135 @@ def bilibili_popular() -> list[dict[str, Any]]:
             {"bvid": bvid, "cid": row.get("cid")},
         ))
     return result
+
+
+def normalize_bilibili_search_result(row: dict[str, Any], rank: int) -> dict[str, Any] | None:
+    title = plain_html(row.get("title"))
+    arcurl = str(row.get("arcurl") or "")
+    bvid_match = re.search(r"(BV[0-9A-Za-z]{8,})", row.get("bvid") or arcurl)
+    bvid = bvid_match.group(1) if bvid_match else ""
+    if not title or not bvid:
+        return None
+    url = f"https://www.bilibili.com/video/{bvid}"
+    try:
+        duration = max(0, int(row.get("duration") or 0))
+    except (TypeError, ValueError):
+        duration = 0
+    try:
+        published_at = datetime.fromtimestamp(
+            int(row.get("pubdate") or 0), tz=timezone.utc
+        ).isoformat(timespec="seconds").replace("+00:00", "Z")
+    except (TypeError, ValueError, OSError, OverflowError):
+        published_at = ""
+    tag_text = plain_html(row.get("tag"))
+    return item(
+        "bilibili",
+        "video",
+        title,
+        url,
+        rank,
+        parse_cn_number(row.get("play") or 0),
+        plain_html(row.get("description")),
+        plain_html(row.get("author")),
+        {
+            "bvid": bvid,
+            "duration": duration,
+            "published_at": published_at,
+            "tags": [tag for tag in re.split(r"[,，#]", tag_text) if tag][:8],
+            "likes": parse_cn_number(row.get("like") or 0),
+            "favorites": parse_cn_number(row.get("favorites") or 0),
+        },
+    )
+
+
+def parse_bilibili_search_payload(payload: Any, limit: int = 20) -> list[dict[str, Any]]:
+    data = payload.get("data", {}) if isinstance(payload, dict) else {}
+    rows = data.get("result", []) if isinstance(data, dict) else []
+    if not isinstance(rows, list):
+        return []
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for source in rows:
+        if len(result) >= limit:
+            break
+        if not isinstance(source, dict):
+            continue
+        normalized = normalize_bilibili_search_result(source, len(result) + 1)
+        if not normalized:
+            continue
+        bvid = normalized["extra"]["bvid"]
+        if bvid in seen:
+            continue
+        seen.add(bvid)
+        result.append(normalized)
+    return result
+
+
+def bilibili_video_search(
+    keyword: str,
+    limit: int = 20,
+    order: str = "click",
+    ai_only: bool = True,
+) -> dict[str, Any]:
+    query = compact_space(keyword)
+    if not query:
+        raise ValueError("empty_keyword")
+    safe_limit = max(1, min(50, int(limit)))
+    safe_order = order if order in {"totalrank", "click", "pubdate", "dm", "scores"} else "click"
+    encoded = urllib.parse.urlencode({
+        "search_type": "video",
+        "keyword": query,
+        "page": 1,
+        "page_size": safe_limit,
+        "order": safe_order,
+    })
+    url = f"https://api.bilibili.com/x/web-interface/wbi/search/type?{encoded}"
+    notices: list[str] = []
+    rows: list[dict[str, Any]] = []
+    try:
+        payload = fetch_json(url, {
+            "Referer": "https://search.bilibili.com/",
+            "Origin": "https://www.bilibili.com",
+        })
+        status_code = payload.get("code") if isinstance(payload, dict) else None
+        if status_code != 0:
+            notices.append(f"B站搜索接口返回 {status_code}")
+        rows = parse_bilibili_search_payload(payload, safe_limit)
+    except FetchError as exc:
+        notices.append(f"B站搜索接口不可用：{str(exc)[:160]}")
+
+    keywords = STORE.data["settings"].get("keywords", DEFAULT_KEYWORDS)
+    filtered: list[dict[str, Any]] = []
+    for row in rows:
+        relevant, matched = is_ai_relevant(row, keywords)
+        if relevant:
+            row["matched_keywords"] = matched
+        if relevant or not ai_only:
+            filtered.append(row)
+    if rows and not filtered and ai_only:
+        notices.append("本次结果没有命中设置里的 AI 关键词，可关闭“仅 AI 相关”后重试")
+
+    return {
+        "platform": "bilibili",
+        "keyword": query,
+        "order": safe_order,
+        "ai_only": ai_only,
+        "items": filtered[:safe_limit],
+        "fallback_url": "https://search.bilibili.com/all?" + urllib.parse.urlencode({
+            "keyword": query,
+            "order": safe_order,
+        }),
+        "external_links": {
+            "douyin": "https://www.douyin.com/search/" + urllib.parse.quote(query) + "?publish_time=0&sort_type=0",
+            "xiaohongshu": "https://www.xiaohongshu.com/search_result?" + urllib.parse.urlencode({"keyword": query}),
+            "bilibili": "https://search.bilibili.com/all?" + urllib.parse.urlencode({
+                "keyword": query,
+                "order": safe_order,
+            }),
+        },
+        "notices": list(dict.fromkeys(notices)),
+        "fetched_at": utc_now(),
+    }
 
 
 def weibo_hot() -> list[dict[str, Any]]:
@@ -941,6 +1074,19 @@ class Handler(BaseHTTPRequestHandler):
 
                 STORE.update(mutate)
                 self.send_json({"ok": True, "state": public_state()})
+            elif path == "/api/videos/search":
+                keyword = compact_space(str(payload.get("keyword") or ""))
+                try:
+                    limit = int(payload.get("limit") or 20)
+                except (TypeError, ValueError):
+                    limit = 20
+                result = bilibili_video_search(
+                    keyword,
+                    limit,
+                    str(payload.get("order") or "click"),
+                    bool(payload.get("ai_only", True)),
+                )
+                self.send_json({"ok": True, "result": result})
             elif path == "/api/imports":
                 row = {
                     "id": short_id("imp"),

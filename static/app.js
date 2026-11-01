@@ -4,11 +4,12 @@ const state = {
   data: null,
   activeTab: "trends",
   selectedSessionId: null,
-  selectedSearchPlatform: "douyin",
   trendQuery: "",
   platformFilter: "all",
   includeUnrelated: false,
   refreshing: false,
+  videoSearch: null,
+  videoSearching: false,
   liveSearch: null,
   liveSearching: false,
   liveModeFilter: "all",
@@ -21,6 +22,12 @@ const platformLabels = {
   weibo: "微博",
   zhihu: "知乎",
   other: "其他",
+};
+
+const searchUrls = {
+  douyin: keyword => `https://www.douyin.com/search/${encodeURIComponent(keyword)}?publish_time=0&sort_type=0&source=normal`,
+  xiaohongshu: keyword => `https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(keyword)}`,
+  bilibili: keyword => `https://search.bilibili.com/all?keyword=${encodeURIComponent(keyword)}&order=click`,
 };
 
 const eventLabels = {
@@ -111,6 +118,7 @@ function renderAll() {
   renderSourceStatus();
   renderTrends();
   renderImports();
+  renderVideoSearch();
   renderLiveSearch();
   renderSessions();
   renderSettings();
@@ -206,6 +214,69 @@ function renderImports() {
     <div class="meta-row"><span>${platformLabels[row.platform] || row.platform} · ${escapeHtml(row.author || "未知作者")}</span><span>${formatTime(row.created_at)}</span></div>
     ${row.summary ? `<strong>${escapeHtml(row.summary.headline || "")}</strong>${summaryList(row.summary, "key_points")}` : ""}
   </article>`).join("");
+}
+
+function formatDuration(seconds) {
+  const total = Number(seconds || 0);
+  if (!total) return "-";
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const second = total % 60;
+  const minuteText = hours ? String(minutes).padStart(2, "0") : String(minutes);
+  return `${hours ? `${hours}:` : ""}${minuteText}:${String(second).padStart(2, "0")}`;
+}
+
+function renderVideoSearch() {
+  const keyword = el("videoSearchKeyword").value.trim() || "AI";
+  const links = el("videoExternalLinks");
+  links.innerHTML = [
+    ["douyin", "抖音"],
+    ["xiaohongshu", "小红书"],
+    ["bilibili", "B站"],
+  ].map(([platform, label]) => `<a href="${escapeHtml(searchUrls[platform](keyword))}" target="_blank" rel="noopener noreferrer">${label}</a>`).join("");
+
+  const list = el("videoSearchResults");
+  const notice = el("videoSearchNotice");
+  const search = state.videoSearch;
+  if (!search) {
+    notice.innerHTML = "";
+    list.innerHTML = `<div class="card empty-message">输入关键词后获取可提炼的热门视频</div>`;
+    return;
+  }
+
+  const notices = search.notices || [];
+  notice.innerHTML = notices.length
+    ? `${notices.map(value => `<p>${escapeHtml(value)}</p>`).join("")}${search.fallback_url ? `<a href="${escapeHtml(search.fallback_url)}" target="_blank" rel="noopener noreferrer">打开B站搜索页</a>` : ""}`
+    : "";
+  const rows = search.items || [];
+  if (!rows.length) {
+    list.innerHTML = `<div class="card empty-message">暂无匹配视频</div>`;
+    return;
+  }
+
+  list.innerHTML = rows.map((row, index) => {
+    const tags = [
+      `<span class="tag platform">B站</span>`,
+      ...(row.matched_keywords || []).slice(0, 3).map(word => `<span class="tag ai">${escapeHtml(word)}</span>`),
+      ...(row.extra?.tags || []).slice(0, 2).map(word => `<span class="tag">${escapeHtml(word)}</span>`),
+    ].join("");
+    const stats = [
+      `${formatNumber(row.heat)} 播放`,
+      row.extra?.likes ? `${formatNumber(row.extra.likes)} 赞` : "",
+      row.extra?.duration ? formatDuration(row.extra.duration) : "",
+    ].filter(Boolean).join(" · ");
+    return `<article class="card video-search-card">
+      <div class="search-rank">${index + 1}</div>
+      <div class="live-search-main">
+        <h4><a href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.title)}</a></h4>
+        <div class="meta-row"><span>${escapeHtml(row.author || "未知作者")}</span><span>${escapeHtml(stats)}</span></div>
+        ${row.description ? `<p class="trend-desc">${escapeHtml(row.description)}</p>` : ""}
+        <div class="tags">${tags}</div>
+      </div>
+      <button class="btn small primary import-video-search" data-index="${index}" type="button"><i data-lucide="sparkles"></i>提炼</button>
+    </article>`;
+  }).join("");
+  renderIcons();
 }
 
 function renderLiveSearch() {
@@ -409,6 +480,77 @@ async function saveImport(event) {
   }
 }
 
+async function searchVideos(event) {
+  event.preventDefault();
+  if (state.videoSearching) return;
+  const keyword = el("videoSearchKeyword").value.trim();
+  if (!keyword) {
+    toast("请输入视频关键词", true);
+    return;
+  }
+  state.videoSearching = true;
+  const button = el("videoSearchButton");
+  button.disabled = true;
+  button.innerHTML = `<i data-lucide="loader-2"></i>搜索中`;
+  renderIcons();
+  el("videoSearchResults").innerHTML = `<div class="card empty-message skeleton">搜索中</div>`;
+  try {
+    const payload = await api("/api/videos/search", {
+      method: "POST",
+      body: {
+        keyword,
+        order: el("videoOrder").value,
+        ai_only: el("videoAiOnly").checked,
+        limit: 20,
+      },
+    });
+    state.videoSearch = payload.result;
+    renderVideoSearch();
+    toast(payload.result.items.length ? `找到 ${payload.result.items.length} 个相关视频` : "没有匹配视频");
+  } catch (error) {
+    el("videoSearchResults").innerHTML = `<div class="card empty-message">搜索失败</div>`;
+    toast(`搜索失败：${error.message}`, true);
+  } finally {
+    state.videoSearching = false;
+    button.disabled = false;
+    button.innerHTML = `<i data-lucide="search"></i>搜索`;
+    renderIcons();
+  }
+}
+
+async function importVideoFromSearch(index, button) {
+  const row = state.videoSearch?.items?.[index];
+  if (!row) return;
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = `<i data-lucide="loader-2"></i>提炼中`;
+    renderIcons();
+  }
+  try {
+    const payload = await api("/api/imports", {
+      method: "POST",
+      body: {
+        platform: "bilibili",
+        kind: "video",
+        title: row.title,
+        url: row.url,
+        author: row.author,
+        raw_text: row.description || "",
+      },
+    });
+    state.data.imports.unshift(payload.import);
+    toast(payload.import.content_source === "public_subtitle" ? "已抓取公开字幕并提炼" : "已提炼视频简介，可再补充字幕");
+    renderAll();
+  } catch (error) {
+    toast(`提炼失败：${error.message}`, true);
+    if (button?.isConnected) {
+      button.disabled = false;
+      button.innerHTML = `<i data-lucide="sparkles"></i>提炼`;
+      renderIcons();
+    }
+  }
+}
+
 async function createSession(event) {
   event.preventDefault();
   const payload = await api("/api/live/sessions", {
@@ -571,12 +713,6 @@ async function saveSettings(event) {
   }
 }
 
-const searchUrls = {
-  douyin: keyword => `https://www.douyin.com/search/${encodeURIComponent(keyword)}?publish_time=0&sort_type=0&source=normal`,
-  xiaohongshu: keyword => `https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(keyword)}`,
-  bilibili: keyword => `https://search.bilibili.com/all?keyword=${encodeURIComponent(keyword)}&order=click`,
-};
-
 function switchTab(tab) {
   state.activeTab = tab;
   document.querySelectorAll(".nav-item").forEach(button => button.classList.toggle("active", button.dataset.tab === tab));
@@ -596,6 +732,13 @@ function bindEvents() {
     await refreshTrends();
   });
   el("importForm").addEventListener("submit", saveImport);
+  el("videoSearchForm").addEventListener("submit", searchVideos);
+  el("videoSearchKeyword").addEventListener("input", renderVideoSearch);
+  el("videoSearchResults").addEventListener("click", event => {
+    const button = event.target.closest(".import-video-search");
+    if (!button) return;
+    importVideoFromSearch(Number(button.dataset.index), button);
+  });
   el("subtitleFile").addEventListener("change", async event => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -633,21 +776,10 @@ function bindEvents() {
     switchTab("videos");
     toast("已带入视频信息，请补充口播或字幕");
   });
-  document.querySelectorAll(".search-links button").forEach(button => {
-    button.addEventListener("click", () => {
-      state.selectedSearchPlatform = button.dataset.search;
-      document.querySelectorAll(".search-links button").forEach(node => node.classList.toggle("active", node === button));
-    });
-  });
-  el("openSearch").addEventListener("click", () => {
-    const keyword = el("searchKeyword").value.trim() || "AI";
-    window.open(searchUrls[state.selectedSearchPlatform](keyword), "_blank", "noopener,noreferrer");
-  });
 }
 
 async function init() {
   bindEvents();
-  document.querySelector(".search-links button")?.classList.add("active");
   renderIcons();
   try {
     const data = await loadState();
